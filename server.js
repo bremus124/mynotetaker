@@ -1,9 +1,12 @@
 const express = require('express');
-const {notes} = require('./db/db.json');
+const notes = require('./db/db.json');
 const fs = require('fs');
 const path = require('path');
 const { query } = require('express');
 const { resourceLimits } = require('worker_threads');
+const { v4: uuidv4 } = require('uuid');
+
+
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -21,13 +24,32 @@ function filterbyquery(query, notesarray){
 }
 
 function createnote(body, notesarray){
-    const note = body
+    const note = {
+        "title":body.title, 
+        "text":body.text,
+        "id": uuidv4()
+    }
     notesarray.push(note)
     fs.writeFileSync(
         path.join(__dirname, './db/db.json'),
-        JSON.stringify({notes: notesarray}, null, 2),
+        JSON.stringify(notesarray)
     )
     return note
+}
+
+
+function deleteNote(id,notesarray){
+    for (let i = 0; i<notesarray.length; i++){
+        if (notesarray[i].id === id){
+            notesarray.splice(i,1);
+            fs.writeFileSync(
+                path.join(__dirname, './db/db.json'),
+                JSON.stringify(notesarray)    
+            )
+          return true; 
+        }
+    }
+        return false;
 }
 
 function findById(id, notesarray) {
@@ -53,10 +75,18 @@ app.get('/api/notes', (req, res) => {
 })
 
 app.post('/api/notes', (req, res) => {
-    req.body.id = notes.length.toString()
     const note = createnote(req.body, notes)
     res.json(note)
 })
+
+app.delete('/api/notes/:id', (req, res) => {
+    if (deleteNote(req.params.id, notes)){
+        return res.status(200).json(`note was removed successfully!`);    
+    }
+    else {
+        return res.status(500).json('Error in deleting Note');
+    }
+}) 
 
 app.get('/', (req, res) => {
     res.sendFile(path.join(__dirname, './public/index.html'))
